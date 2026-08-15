@@ -204,15 +204,23 @@ function render(data) {
     opts.push({ id: 'best', label: 'Terbaik' });
     for (const h of data.qualities || []) opts.push({ id: String(h), label: `${h}p` });
   }
+  if (data.images > 0) {
+    opts.push({ id: 'images', label: data.images > 1 ? `Gambar (${data.images})` : 'Gambar' });
+  }
   opts.push({ id: 'audio', label: 'MP3' });
 
-  quality = data.hasVideo ? 'best' : 'audio';
+  quality = data.hasVideo ? 'best' : (data.images > 0 ? 'images' : 'audio');
 
   const note = $('note');
   if (data.hasVideo) {
     note.classList.add('hidden');
   } else {
-    note.textContent = 'Postingan ini berupa foto/slideshow, bukan video. Yang bisa diunduh hanya trek audionya (MP3).';
+    const n = data.images || 0;
+    note.textContent = n
+      ? `Postingan ini berupa foto/slideshow berisi ${n} gambar` +
+        (n > 1 ? ' (diunduh sebagai ZIP)' : '') +
+        '. Trek audionya bisa diunduh terpisah sebagai MP3.'
+      : 'Postingan ini berupa foto/slideshow, bukan video. Yang bisa diunduh hanya trek audionya (MP3).';
     note.classList.remove('hidden');
   }
   $('qualities').innerHTML = '';
@@ -255,7 +263,7 @@ $('download').addEventListener('click', async () => {
     const r = await fetch('/api/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: current.url, quality }),
+      body: JSON.stringify({ url: current.url, quality, title: current.title }),
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Gagal memulai unduhan.');

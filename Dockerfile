@@ -1,7 +1,7 @@
 FROM node:22-alpine
 
 # yt-dlp butuh python3, ffmpeg dipakai untuk menggabungkan video+audio dan konversi mp3
-RUN apk add --no-cache python3 py3-pip ffmpeg ca-certificates tini \
+RUN apk add --no-cache python3 py3-pip ffmpeg ca-certificates tini zip \
  && python3 -m venv /opt/venv \
  && /opt/venv/bin/pip install --no-cache-dir --upgrade pip yt-dlp
 

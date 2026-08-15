@@ -76,7 +76,77 @@ async function resolveUrl(raw) {
     out = checked.url;
   }
 
-  return { url: out.replace(/\/photo\/(\d+)/, '/video/$1') };
+  return {
+    url: out.replace(/\/photo\/(\d+)/, '/video/$1'),
+    isPhoto: /\/photo\/\d+/.test(out),
+  };
+}
+
+// --------------------------------------------- slideshow foto TikTok
+// Halaman /photo/ biasa dijaga captcha untuk permintaan anonim, tetapi endpoint
+// embed masih memuat daftar gambarnya pada field "displayImages".
+
+// Mengambil satu array JSON utuh dari HTML, dengan menghormati tanda kutip
+// sehingga kurung di dalam string tidak ikut terhitung.
+function sliceJsonArray(html, key) {
+  const at = html.indexOf(`"${key}":`);
+  if (at < 0) return null;
+  const start = html.indexOf('[', at);
+  if (start < 0) return null;
+
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < html.length; i++) {
+    const c = html[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '[') depth++;
+    else if (c === ']' && --depth === 0) return html.slice(start, i + 1);
+  }
+  return null;
+}
+
+async function fetchTikTokImages(url) {
+  const m = url.match(/\/(?:video|photo)\/(\d+)/);
+  if (!m) return [];
+  try {
+    const r = await fetch(`https://www.tiktok.com/embed/v2/${m[1]}`, {
+      headers: { 'User-Agent': BROWSER_UA, Referer: 'https://www.tiktok.com/' },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!r.ok) return [];
+    const raw = sliceJsonArray(await r.text(), 'displayImages');
+    if (!raw) return [];
+
+    const out = [];
+    const seen = new Set();
+    for (const img of JSON.parse(raw)) {
+      const u = img?.urlList?.[0];
+      if (!u) continue;
+      // Gambar yang sama disajikan dari beberapa host CDN; ambil satu saja.
+      const key = (u.match(/photomode[^/]*\/([a-f0-9]{8,})/) || [])[1] || u;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(u);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function safeName(s) {
+  return String(s || '')
+    .replace(/[\\/:*?"<>|\r\n\t]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100) || 'tiktok';
 }
 
 // YouTube kadang membalas 403 pada satu klien player saja. Urutan ini dipakai
@@ -185,7 +255,7 @@ function buildFormatArgs(quality) {
 app.post('/api/info', async (req, res) => {
   const parsed = parseUrl(req.body?.url);
   if (parsed.error) return res.status(400).json({ error: parsed.error });
-  const { url, error } = await resolveUrl(parsed.url);
+  const { url, error, isPhoto } = await resolveUrl(parsed.url);
   if (error) return res.status(400).json({ error });
 
   try {
@@ -209,6 +279,7 @@ app.post('/api/info', async (req, res) => {
       filesize: humanSize(info.filesize || info.filesize_approx),
       qualities: available,
       hasVideo: heights.size > 0,
+      images: isPhoto ? (await fetchTikTokImages(url)).length : 0,
       url,
     });
   } catch (e) {
@@ -246,9 +317,79 @@ app.post('/api/download', async (req, res) => {
     job.stage = 'Menunggu antrean…';
     job.queued = true;
   }
-  enqueue(() => runAttempt(job, url, quality, 0));
+  const title = safeName(req.body?.title);
+  enqueue(() =>
+    quality === 'images'
+      ? runImages(job, url, title)
+      : runAttempt(job, url, quality, 0)
+  );
   res.json({ id });
 });
+
+// Mengunduh gambar slideshow TikTok. Lebih dari satu gambar dikemas jadi ZIP
+// agar browser tetap menerima satu berkas.
+async function runImages(job, url, title) {
+  try {
+    job.stage = 'Mengambil daftar gambar…';
+    emit(job);
+
+    const urls = await fetchTikTokImages(url);
+    if (!urls.length) {
+      throw new Error('Tidak ada gambar yang bisa diambil dari postingan ini.');
+    }
+
+    const names = [];
+    for (let i = 0; i < urls.length; i++) {
+      const r = await fetch(urls[i], {
+        headers: { 'User-Agent': BROWSER_UA, Referer: 'https://www.tiktok.com/' },
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!r.ok) throw new Error(`Gagal mengunduh gambar ke-${i + 1} (HTTP ${r.status}).`);
+
+      const name = urls.length === 1
+        ? `${title}.jpg`
+        : `${title}-${String(i + 1).padStart(2, '0')}.jpg`;
+      await fsp.writeFile(path.join(job.dir, name), Buffer.from(await r.arrayBuffer()));
+      names.push(name);
+
+      job.percent = Math.round(((i + 1) / urls.length) * 100);
+      job.stage = `Mengunduh gambar ${i + 1}/${urls.length}…`;
+      emit(job);
+    }
+
+    if (names.length > 1) {
+      job.stage = 'Mengemas ZIP…';
+      emit(job);
+      const zipName = `${title}.zip`;
+      await packZip(job.dir, names, zipName);
+      await Promise.all(names.map((n) => fsp.rm(path.join(job.dir, n), { force: true })));
+      job.file = zipName;
+    } else {
+      job.file = names[0];
+    }
+
+    job.status = 'done';
+    job.percent = 100;
+    job.stage = 'Selesai';
+  } catch (e) {
+    job.status = 'error';
+    job.error = e.message;
+  }
+  release(job);
+  emit(job, true);
+}
+
+function packZip(dir, names, zipName) {
+  return new Promise((resolve, reject) => {
+    const z = spawn('zip', ['-j', '-q', zipName, ...names], { cwd: dir, windowsHide: true });
+    let err = '';
+    z.stderr.on('data', (d) => { err += d; });
+    z.on('error', (e) => reject(new Error(`zip gagal dijalankan: ${e.message}`)));
+    z.on('close', (code) =>
+      code === 0 ? resolve() : reject(new Error(err.trim() || `zip keluar dengan kode ${code}`))
+    );
+  });
+}
 
 // Antrean: YouTube dan TikTok membatasi laju per-IP, sehingga unduhan yang
 // berjalan serentak sering ditolak 403. Job dijalankan bergiliran.

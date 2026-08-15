@@ -81,7 +81,24 @@ penyalinan ini, mount read-only akan menghasilkan galat
 | `/api/file/:id`       | GET    | Ambil berkas hasil                        |
 | `/api/health`         | GET    | Cek versi yt-dlp                          |
 
-Nilai `quality`: `best`, `1080`, `720`, `480`, `360`, `audio` (MP3).
+Nilai `quality`: `best`, `1080`, `720`, `480`, `360`, `audio` (MP3),
+`images` (gambar slideshow TikTok).
+
+## Postingan foto/slideshow TikTok
+
+Link seperti `https://vt.tiktok.com/XXXXXXX/` bisa mengarah ke postingan
+`/photo/`, bukan `/video/`. Dua hal ditangani server untuk kasus ini:
+
+- link pendek `vt`/`vm.tiktok.com` diresolusi lebih dulu (hasil redirect
+  divalidasi ulang terhadap daftar host yang diizinkan), lalu pola `/photo/`
+  ditulis ulang menjadi `/video/` agar dikenali extractor yt-dlp;
+- daftar gambarnya diambil dari endpoint `tiktok.com/embed/v2/<id>` — halaman
+  `/photo/` biasa dijaga captcha untuk permintaan anonim, sedangkan endpoint
+  embed masih memuat field `displayImages`.
+
+Di UI, postingan seperti ini otomatis hanya menawarkan **Gambar** dan **MP3**
+(tanpa pilihan resolusi yang menyesatkan). Bila gambarnya lebih dari satu,
+berkas dikemas menjadi ZIP.
 
 ## Memperbarui yt-dlp
 
