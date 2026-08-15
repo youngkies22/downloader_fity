@@ -1,0 +1,24 @@
+﻿services:
+  downloader_fity:
+    build: .
+    image: downloader_fity:latest
+    container_name: downloader_fity
+    restart: unless-stopped
+    ports:
+      - "5006:3000"
+    environment:
+      PORT: 3000
+      DOWNLOAD_DIR: /data
+      JOB_TTL_MINUTES: 30
+      # Untuk Instagram/Facebook yang butuh login, ekspor cookies.txt lalu
+      # aktifkan baris berikut beserta mount-nya di bawah:
+      # COOKIES_FILE: /app/cookies.txt
+    volumes:
+      - downloads:/data
+      # - ./cookies.txt:/app/cookies.txt:ro
+
+volumes:
+  downloads:
+
+
+

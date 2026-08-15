@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Downloader Fity</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬇️</text></svg>" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        keyframes: {
+          'fade-up': { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
+        },
+        animation: { 'fade-up': 'fade-up .35s ease-out both' },
+      },
+    },
+  };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { background-image: radial-gradient(60rem 40rem at 50% -10%, rgba(99,102,241,.18), transparent 60%); }
+</style>
+</head>
+
+<body class="h-full bg-slate-950 text-slate-100 font-sans antialiased">
+  <main class="mx-auto flex min-h-full max-w-2xl flex-col justify-center px-5 py-12">
+
+    <!-- Header -->
+    <header class="mb-8 text-center">
+      <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 shadow-lg shadow-indigo-500/25">
+        <svg class="h-7 w-7 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0 4.5-4.5M12 16l-4.5-4.5M4 20h16" />
+        </svg>
+      </div>
+      <h1 class="text-3xl font-bold tracking-tight">Downloader <span class="bg-gradient-to-r from-indigo-400 to-fuchsia-400 bg-clip-text text-transparent">Fity</span></h1>
+      <p class="mt-2 text-sm text-slate-400">Tempel tautan, pilih kualitas, unduh.</p>
+      <div class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400">
+        <span class="rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1">YouTube</span>
+        <span class="rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1">TikTok</span>
+        <span class="rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1">Facebook</span>
+        <span class="rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1">Instagram</span>
+      </div>
+    </header>
+
+    <!-- Kartu utama -->
+    <section class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-2xl shadow-black/40 backdrop-blur">
+      <form id="form" class="space-y-3">
+        <label for="url" class="sr-only">Tautan video</label>
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <div class="relative flex-1">
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 1 0 5.7 5.7l1.2-1.2M10.5 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 1 0-5.7-5.7l-1.2 1.2" />
+            </svg>
+            <input id="url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+              placeholder="Tempel URL video di sini…"
+              class="w-full rounded-xl border border-slate-700 bg-slate-950/70 py-3 pl-11 pr-24 text-sm placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+            <button type="button" id="paste"
+              class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200">Tempel</button>
+          </div>
+          <button type="submit" id="check"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-50">
+            <span id="check-label">Cek</span>
+            <svg id="check-spin" class="hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
+            </svg>
+          </button>
+        </div>
+      </form>
+
+      <!-- Pesan galat -->
+      <div id="alert" class="mt-4 hidden animate-fade-up items-start gap-2.5 rounded-xl border border-rose-900/60 bg-rose-950/40 p-3 text-sm text-rose-200">
+        <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+        </svg>
+        <span id="alert-text"></span>
+      </div>
+
+      <!-- Hasil -->
+      <div id="result" class="mt-5 hidden animate-fade-up">
+        <div class="flex gap-4 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+          <img id="thumb" alt="" class="hidden h-20 w-32 shrink-0 rounded-lg object-cover" />
+          <div class="min-w-0 flex-1">
+            <h2 id="title" class="line-clamp-2 text-sm font-semibold leading-snug"></h2>
+            <p id="meta" class="mt-1 text-xs text-slate-400"></p>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Kualitas</p>
+          <div id="qualities" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <button id="download"
+          class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-60">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" />
+          </svg>
+          Unduh
+        </button>
+
+        <!-- Progres -->
+        <div id="progress" class="mt-4 hidden">
+          <div class="mb-1.5 flex items-baseline justify-between text-xs">
+            <span id="stage" class="text-slate-300">Menyiapkan…</span>
+            <span id="pct" class="font-mono font-semibold text-indigo-300">0%</span>
+          </div>
+          <div class="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+            <div id="bar" class="h-full w-0 rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 transition-[width] duration-300"></div>
+          </div>
+          <p id="rate" class="mt-1.5 font-mono text-[11px] text-slate-500"></p>
+        </div>
+      </div>
+    </section>
+
+    <p class="mt-6 text-center text-xs leading-relaxed text-slate-500">
+      Gunakan hanya untuk konten milik sendiri atau yang Anda punya izin mengunduhnya.
+    </p>
+  </main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let current = null;      // metadata hasil /api/info
+let quality = 'best';
+let busy = false;
+
+function showAlert(msg) {
+  $('alert-text').textContent = msg;
+  $('alert').classList.remove('hidden');
+  $('alert').classList.add('flex');
+}
+function hideAlert() {
+  $('alert').classList.add('hidden');
+  $('alert').classList.remove('flex');
+}
+function setChecking(on) {
+  $('check').disabled = on;
+  $('check-label').textContent = on ? 'Memeriksa' : 'Cek';
+  $('check-spin').classList.toggle('hidden', !on);
+}
+function fmtDuration(s) {
+  if (!s) return null;
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+  return (h ? `${h}:${String(m).padStart(2, '0')}` : `${m}`) + `:${String(sec).padStart(2, '0')}`;
+}
+
+$('paste').addEventListener('click', async () => {
+  try {
+    $('url').value = (await navigator.clipboard.readText()).trim();
+    $('url').focus();
+  } catch {
+    showAlert('Browser menolak akses papan klip. Tempel manual dengan Ctrl+V.');
+  }
+});
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = $('url').value.trim();
+  if (!url) return showAlert('Masukkan URL video terlebih dahulu.');
+
+  hideAlert();
+  $('result').classList.add('hidden');
+  setChecking(true);
+  try {
+    const r = await fetch('/api/info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Gagal mengambil informasi video.');
+    render(data);
+  } catch (err) {
+    showAlert(err.message);
+  } finally {
+    setChecking(false);
+  }
+});
+
+function render(data) {
+  current = data;
+  $('title').textContent = data.title;
+  const bits = [data.extractor, data.uploader, fmtDuration(data.duration), data.filesize].filter(Boolean);
+  $('meta').textContent = bits.join(' · ');
+
+  if (data.thumbnail) {
+    $('thumb').src = data.thumbnail;
+    $('thumb').classList.remove('hidden');
+  } else {
+    $('thumb').classList.add('hidden');
+  }
+
+  const opts = [{ id: 'best', label: 'Terbaik' }];
+  for (const h of data.qualities || []) opts.push({ id: String(h), label: `${h}p` });
+  opts.push({ id: 'audio', label: 'MP3' });
+
+  quality = 'best';
+  $('qualities').innerHTML = '';
+  for (const o of opts) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.q = o.id;
+    b.textContent = o.label;
+    b.className = 'quality-btn rounded-lg border px-3.5 py-1.5 text-xs font-medium transition';
+    b.addEventListener('click', () => { quality = o.id; paintQualities(); });
+    $('qualities').appendChild(b);
+  }
+  paintQualities();
+
+  $('progress').classList.add('hidden');
+  $('download').disabled = false;
+  $('download').classList.remove('hidden');
+  $('result').classList.remove('hidden');
+}
+
+function paintQualities() {
+  for (const b of document.querySelectorAll('.quality-btn')) {
+    const on = b.dataset.q === quality;
+    b.className = 'quality-btn rounded-lg border px-3.5 py-1.5 text-xs font-medium transition ' +
+      (on
+        ? 'border-indigo-500 bg-indigo-500/15 text-indigo-200'
+        : 'border-slate-700 bg-slate-950/50 text-slate-300 hover:border-slate-600 hover:text-white');
+  }
+}
+
+$('download').addEventListener('click', async () => {
+  if (!current || busy) return;
+  busy = true;
+  hideAlert();
+  $('download').disabled = true;
+  $('progress').classList.remove('hidden');
+  setProgress({ percent: 0, stage: 'Menyiapkan…', speed: '', eta: '' });
+
+  try {
+    const r = await fetch('/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: current.url, quality }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Gagal memulai unduhan.');
+    track(data.id);
+  } catch (err) {
+    showAlert(err.message);
+    finish();
+  }
+});
+
+function track(id) {
+  const es = new EventSource(`/api/progress/${id}`);
+  es.onmessage = (ev) => {
+    const s = JSON.parse(ev.data);
+    setProgress(s);
+    if (s.status === 'done') {
+      es.close();
+      $('stage').textContent = 'Selesai — berkas tersimpan';
+      window.location.href = `/api/file/${id}`;
+      finish();
+    } else if (s.status === 'error') {
+      es.close();
+      showAlert(s.error || 'Unduhan gagal.');
+      $('progress').classList.add('hidden');
+      finish();
+    }
+  };
+  es.onerror = () => {
+    es.close();
+    if (busy) {
+      showAlert('Koneksi ke server terputus.');
+      finish();
+    }
+  };
+}
+
+function setProgress(s) {
+  const p = Math.max(0, Math.min(100, s.percent || 0));
+  $('bar').style.width = p + '%';
+  $('pct').textContent = p.toFixed(0) + '%';
+  if (s.stage) $('stage').textContent = s.stage;
+  $('rate').textContent = [s.speed, s.eta && s.eta !== 'Unknown' ? `sisa ${s.eta}` : ''].filter(Boolean).join(' · ');
+}
+
+function finish() {
+  busy = false;
+  $('download').disabled = false;
+}
+</script>
+</body>
+</html>
