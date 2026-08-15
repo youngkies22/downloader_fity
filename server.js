@@ -47,6 +47,38 @@ function parseUrl(raw) {
   return { url: u.toString() };
 }
 
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+// Link pendek TikTok (vt/vm.tiktok.com) baru menampilkan bentuk aslinya setelah
+// redirect diikuti, dan slideshow foto memakai pola /photo/ yang tidak dikenali
+// extractor yt-dlp — padahal isinya bisa diambil lewat pola /video/.
+async function resolveUrl(raw) {
+  let out = raw;
+  const host = new URL(raw).hostname.toLowerCase().replace(/^www\./, '');
+
+  if (host === 'vt.tiktok.com' || host === 'vm.tiktok.com') {
+    try {
+      const ctl = AbortSignal.timeout(15000);
+      const r = await fetch(raw, {
+        redirect: 'follow',
+        headers: { 'User-Agent': BROWSER_UA },
+        signal: ctl,
+      });
+      if (r.url) out = r.url;
+    } catch {
+      return { url: raw }; // redirect gagal: biar yt-dlp yang mencoba
+    }
+    // Hasil redirect harus tetap berada di platform yang diizinkan.
+    const checked = parseUrl(out);
+    if (checked.error) return checked;
+    out = checked.url;
+  }
+
+  return { url: out.replace(/\/photo\/(\d+)/, '/video/$1') };
+}
+
 // YouTube kadang membalas 403 pada satu klien player saja. Urutan ini dipakai
 // bergantian saat unduhan diulang; android_vr paling andal pada pengujian
 // (4/4 berhasil vs 2/4 untuk default) dan menyediakan resolusi yang sama.
@@ -151,7 +183,9 @@ function buildFormatArgs(quality) {
 // ---------------------------------------------------------------- routes
 
 app.post('/api/info', async (req, res) => {
-  const { url, error } = parseUrl(req.body?.url);
+  const parsed = parseUrl(req.body?.url);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const { url, error } = await resolveUrl(parsed.url);
   if (error) return res.status(400).json({ error });
 
   try {
@@ -183,7 +217,9 @@ app.post('/api/info', async (req, res) => {
 });
 
 app.post('/api/download', async (req, res) => {
-  const { url, error } = parseUrl(req.body?.url);
+  const parsed = parseUrl(req.body?.url);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const { url, error } = await resolveUrl(parsed.url);
   if (error) return res.status(400).json({ error });
 
   const quality = String(req.body?.quality || 'best');
